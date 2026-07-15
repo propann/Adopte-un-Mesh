@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Adopte un Mesh</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="sigil">♡</div>
+      <p class="eyebrow">Radio sociale locale · EU_868 · signal faible</p>
+      <h1>Adopte un Mesh</h1>
+      <p class="tagline">LoRa transporte l'etincelle. Le Pi 5 garde le feu. Les zombies gardent la porte, mal mais avec conviction.</p>
+      <div class="status" id="status">Connexion au bunker...</div>
+    </section>
+
+    <section class="card">
+      <h2>Creer un profil temporaire</h2>
+      <label>Pseudo
+        <input id="displayName" maxlength="32" placeholder="Azoth du brouillard" />
+      </label>
+      <label>Bio courte
+        <textarea id="bio" maxlength="160" placeholder="Photo, balade, cafe, survie douce..."></textarea>
+      </label>
+      <label>Intention
+        <select id="intent">
+          <option value="ami">Ami</option>
+          <option value="date">Date</option>
+          <option value="balade">Balade</option>
+          <option value="photo">Photo</option>
+          <option value="event">Evenement</option>
+        </select>
+      </label>
+      <label>Symbole radio
+        <select id="heart">
+          <option value="♡">♡ coeur mesh</option>
+          <option value="<3">&lt;3 ascii</option>
+          <option value="☣">☣ zombie safe</option>
+          <option value="✦">✦ signal</option>
+        </select>
+      </label>
+      <button id="createBtn">Allumer la balise</button>
+      <pre id="profileResult"></pre>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <h2>Radar social</h2>
+        <button id="refreshBtn" class="secondary">Scanner</button>
+      </div>
+      <div id="profiles" class="profiles"></div>
+    </section>
+
+    <section class="card warning">
+      <h2>Charte du bunker</h2>
+      <ul>
+        <li>Pas de GPS exact.</li>
+        <li>Pas de telephone dans le mesh.</li>
+        <li>Pas de photo brute par radio.</li>
+        <li>On bloque vite, on signale propre.</li>
+        <li>La drague oui, le spam non. Meme les zombies ont des limites.</li>
+      </ul>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
