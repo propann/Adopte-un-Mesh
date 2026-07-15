@@ -1,0 +1,16 @@
+services:
+  api:
+    volumes:
+      - /srv/adopte-un-mesh/data:/data
+      - /srv/adopte-un-mesh/backups:/backups
+
+  mosquitto:
+    volumes:
+      - /srv/adopte-un-mesh/mosquitto/config:/mosquitto/config
+      - /srv/adopte-un-mesh/mosquitto/data:/mosquitto/data
+      - /srv/adopte-un-mesh/mosquitto/log:/mosquitto/log
+
+  radio-bridge:
+    privileged: false
+    group_add:
+      - dialout
