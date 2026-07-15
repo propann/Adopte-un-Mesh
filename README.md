@@ -2,7 +2,7 @@
 
 Rencontre locale, signal faible, intentions fortes.
 
-Adopte un Mesh est une plateforme de rencontre locale autour de Meshtastic, d'un Raspberry Pi 5 et d'une interface web mobile-first.
+Adopte un Mesh est une plateforme de rencontre locale autour de Meshtastic, d'un Raspberry Pi 5, d'un HDD persistant et d'une interface web mobile-first.
 
 La doctrine est simple : **LoRa transporte l'etincelle, le Pi 5 garde le feu**.
 
@@ -13,7 +13,9 @@ La doctrine est simple : **LoRa transporte l'etincelle, le Pi 5 garde le feu**.
 - Docker Compose pour Pi 5.
 - Mosquitto local pour les integrations MQTT.
 - Radio bridge Python pour parler a une radio Meshtastic en USB.
-- Documentation serveur Pi, securite, protocole radio et mini-image de profil.
+- Ingestion de profils radio `AM1` et `MM1|...`.
+- Portail Wi-Fi local via `hostapd`, `dnsmasq` et Nginx.
+- Documentation serveur Pi, securite, protocole radio, mini-image de profil et Wi-Fi captif.
 - Scripts d'installation, diagnostic et test terrain.
 
 ## Demarrage rapide developpement
@@ -38,6 +40,50 @@ chmod +x scripts/*.sh
 docker compose -f docker/docker-compose.yml -f docker/compose.pi5.yml up -d --build
 ```
 
+## Mode Wi-Fi local / portail captif
+
+Le Pi 5 peut devenir un point d'acces local autonome :
+
+```bash
+sudo ADOPTE_AP_SSID="Adopte Un Mesh" \
+  ADOPTE_WIFI_IFACE="wlan0" \
+  ADOPTE_AP_ADDR="192.168.4.1" \
+  ADOPTE_LOCAL_DOMAIN="adopteunmesh.local" \
+  ./scripts/setup_wifi_ap.sh
+```
+
+Ensuite, les utilisateurs se connectent au Wi-Fi `Adopte Un Mesh` et ouvrent :
+
+```txt
+http://adopteunmesh.local
+```
+
+ou :
+
+```txt
+http://192.168.4.1
+```
+
+Voir `docs/WIFI_AP_CAPTIVE_PORTAL.md`.
+
+## Format profil radio compatible
+
+Format compact terrain :
+
+```txt
+MM1|Pseudo|M/F|49|Photo,LoRa,Hacking|Dispo cafe au soleil
+```
+
+Le Pi parse ce message, recupere le RSSI/SNR si Meshtastic les fournit, et fait un UPSERT dans SQLite. Les endpoints utiles :
+
+```txt
+GET /api/profiles
+GET /api/active
+POST /mesh/inbound
+```
+
+`MM1` est accepte pour prototypage, mais la doctrine produit reste : peu de donnees, TTL court, pas de GPS exact, pas de numero de telephone par LoRa.
+
 ## Mini image de profil par mesh
 
 On ne transporte pas une vraie photo par LoRa au MVP. Meshtastic garde environ 200 octets utiles par payload applicatif, donc une image classique ferait exploser le reseau.
@@ -59,7 +105,7 @@ services/radio-bridge Bridge USB Meshtastic -> API
 configs/mosquitto     Broker MQTT local
 docker                Compose dev/Pi 5
 docs                  Specifications projet
-scripts               Installation et diagnostic
+scripts               Installation, Wi-Fi AP et diagnostic
 ```
 
 ## Regles d'or
