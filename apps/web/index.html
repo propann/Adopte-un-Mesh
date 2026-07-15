@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Adopte un Mesh</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="sigil">♡</div>
+        <p class="eyebrow">bunker social local</p>
+        <h1>Adopte<br />un Mesh</h1>
+        <p class="tagline">Un feu de camp numerique : Meshtastic signale, le Pi 5 organise, les zombies restent polis.</p>
+        <span id="status" class="status">Verification du bunker...</span>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>Creer une balise</h2>
+          <label>Pseudo public<input id="displayName" maxlength="32" placeholder="Signal Azoth" /></label>
+          <label>Age<input id="age" type="number" min="18" max="120" placeholder="49" /></label>
+          <label>Genre / recherche<input id="genreRecherche" maxlength="24" placeholder="M/F, ami, date..." /></label>
+          <label>Intention<select id="intent"><option value="ami">ami</option><option value="date">date</option><option value="photo">photo</option><option value="balade">balade</option><option value="event">event</option></select></label>
+          <label>Bio courte<textarea id="bio" maxlength="160" placeholder="Dispo cafe, balade photo, pas d'adresse, pas de secret."></textarea></label>
+          <label>Signature<select id="heart"><option>♡</option><option>&lt;3</option><option>♥</option><option>☢</option></select></label>
+          <button id="createBtn">Allumer le coeur</button>
+          <pre id="profileResult"></pre>
+        </article>
+
+        <article class="card warning">
+          <h2>QR de terrain</h2>
+          <p>Scanne pour rejoindre le site ou configurer la radio avec les commandes compatibles.</p>
+          <div class="qrgrid">
+            <figure><img src="/api/qr/site" alt="QR site" /><figcaption>Site local</figcaption></figure>
+            <figure><img src="/api/qr/wifi" alt="QR Wi-Fi" /><figcaption>Wi-Fi local</figcaption></figure>
+            <figure><img src="/api/qr/radio-commands" alt="QR commandes radio" /><figcaption>Commandes radio</figcaption></figure>
+          </div>
+          <button id="commandsBtn" class="secondary">Afficher commandes Meshtastic</button>
+          <pre id="commands"></pre>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <h2>Radar social</h2>
+          <button id="refreshBtn" class="secondary">Scanner</button>
+        </div>
+        <div id="profiles" class="profiles"></div>
+      </section>
+
+      <section class="card rules">
+        <h2>Regles du feu de camp</h2>
+        <ul>
+          <li>Pas de GPS exact.</li>
+          <li>Pas de telephone, adresse ou nom complet par LoRa.</li>
+          <li>Un coeur oui, un dossier RGPD dans les airs non.</li>
+          <li>Blocage et signalement avant que le zombie apprenne a swiper.</li>
+        </ul>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
