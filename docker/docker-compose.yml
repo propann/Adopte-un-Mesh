@@ -32,9 +32,6 @@ services:
   radio-bridge:
     build: ../services/radio-bridge
     env_file: ../.env
-    devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0"
-      - "/dev/ttyACM0:/dev/ttyACM0"
     depends_on:
       - api
     restart: unless-stopped
