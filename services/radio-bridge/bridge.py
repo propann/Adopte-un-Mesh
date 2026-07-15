@@ -38,7 +38,11 @@ def run_dry() -> None:
 
 
 def packet_node_id(packet: dict[str, Any]) -> str | None:
-    return packet.get("fromId") or str(packet.get("from")) if packet.get("from") else packet.get("from_id")
+    for key in ("fromId", "from_id", "from"):
+        value = packet.get(key)
+        if value is not None:
+            return str(value)
+    return None
 
 
 def packet_rssi(packet: dict[str, Any]) -> int | None:
