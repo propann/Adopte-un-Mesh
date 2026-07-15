@@ -1,0 +1,4 @@
+requests==2.32.4
+paho-mqtt==2.1.0
+meshtastic==2.7.2
+pubsub==0.1.2
