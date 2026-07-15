@@ -1,0 +1,22 @@
+services:
+  api:
+    volumes:
+      - /srv/adopte-un-mesh/data:/data
+      - /srv/adopte-un-mesh/logs:/logs
+
+  mosquitto:
+    volumes:
+      - /srv/adopte-un-mesh/mosquitto/config:/mosquitto/config
+      - /srv/adopte-un-mesh/mosquitto/data:/mosquitto/data
+      - /srv/adopte-un-mesh/mosquitto/log:/mosquitto/log
+
+  web:
+    volumes:
+      - ../apps/web:/usr/share/nginx/html:ro
+      - ../configs/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+  radio-bridge:
+    privileged: true
+    volumes:
+      - /dev:/dev
+      - /srv/adopte-un-mesh/logs:/logs
