@@ -1,0 +1,21 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile python files
+        run: |
+          python -m py_compile apps/api/main.py services/radio-bridge/bridge.py
+      - name: Validate compose file
+        run: |
+          docker compose -f docker/docker-compose.yml config >/tmp/adopte-compose.yml
