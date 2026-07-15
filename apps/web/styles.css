@@ -7,7 +7,8 @@
   --muted: #9aa7b9;
   --accent: #ff4d7d;
   --ok: #77ffc7;
-  --danger: #ffbd6b;
+  --warn: #ffbd6b;
+  --danger: #ff6b6b;
 }
 
 * { box-sizing: border-box; }
@@ -70,6 +71,7 @@ button {
   cursor: pointer;
 }
 button.secondary { background: var(--panel2); color: var(--text); border: 1px solid rgba(255,255,255,.12); }
+button.ghost { margin-top: 10px; padding: 8px 12px; background: transparent; color: var(--ok); border: 1px solid rgba(119,255,199,.25); }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .profiles { display: grid; gap: 12px; }
 .profile {
@@ -78,9 +80,13 @@ button.secondary { background: var(--panel2); color: var(--text); border: 1px so
   gap: 14px;
   align-items: center;
   padding: 14px;
+  border: 1px solid rgba(255,255,255,.08);
   border-radius: 18px;
   background: rgba(255,255,255,.04);
 }
+.profile-green { border-color: rgba(119,255,199,.35); box-shadow: inset 3px 0 0 rgba(119,255,199,.75); }
+.profile-orange { border-color: rgba(255,189,107,.35); box-shadow: inset 3px 0 0 rgba(255,189,107,.75); }
+.profile-gray { opacity: .76; }
 .avatar {
   width: 54px;
   height: 54px;
@@ -92,6 +98,7 @@ button.secondary { background: var(--panel2); color: var(--text); border: 1px so
   font-size: 30px;
 }
 .profile strong { display: block; }
-.profile small { color: var(--muted); }
+.profile small { color: var(--muted); display: block; margin-top: 4px; }
+.profile p { margin: 8px 0; }
 .warning { border-color: rgba(255,189,107,.22); }
 pre { white-space: pre-wrap; color: var(--ok); }
