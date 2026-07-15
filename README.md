@@ -8,6 +8,23 @@ Adopte un Mesh est une plateforme locale de rencontre et de presence sociale aut
 
 > Ici, les zombies peuvent lire les panneaux. Pas les secrets.
 
+## Lire d'abord
+
+La documentation de reference est maintenant organisee comme un vrai manuel de bunker :
+
+| Document | Role |
+|---|---|
+| `docs/GUIDE_COMPLET.md` | Manuel global projet : architecture, Docker, radio, site, securite, roadmap |
+| `docs/DOCKER_PI5.md` | Deploiement Docker sur Raspberry Pi 5 + HDD |
+| `docs/MESHTASTIC_BASELINE.md` | Reglages radio figes et ultra-compatibles |
+| `docs/SITE_BASELINE.md` | Base UX/fonctionnelle du site local |
+| `docs/RADIO_QR_SETUP.md` | QR, commandes CLI, partage de configuration radio |
+| `docs/PI5_SERVER.md` | Preparation serveur Pi 5 |
+| `docs/OPERATIONS_RUNBOOK.md` | Exploitation quotidienne et pannes |
+| `docs/SECURITY.md` / `SECURITY.md` | Securite projet et procedure de signalement |
+| `docs/PRIVACY.md` | Donnees, minimisation, retention |
+| `docs/INCIDENT_RESPONSE.md` | Que faire en cas d'abus, fuite, spam ou incident |
+
 ## Etat du depot
 
 Cette branche `main` contient maintenant la fondation MVP directement exploitable :
@@ -18,7 +35,7 @@ Cette branche `main` contient maintenant la fondation MVP directement exploitabl
 - Docker Compose dev + override Pi 5/HDD.
 - Point d'acces Wi-Fi local via `hostapd` + `dnsmasq`.
 - Generation de QR codes : URL locale, Wi-Fi, fiche radio et commandes CLI Meshtastic.
-- Documentation architecture, securite, privacy, protocole radio, Pi 5, QR et runbook.
+- Documentation architecture, Docker Pi, securite, privacy, protocole radio, Pi 5, QR, site et runbook.
 
 ## Demarrage rapide dev
 
@@ -59,7 +76,7 @@ Par defaut, les donnees persistantes sont preparees sous :
 /mnt/adopte-hdd/adopte-un-mesh
 ```
 
-Voir `docs/PI5_SERVER.md` et `docs/OPERATIONS_RUNBOOK.md`.
+Voir `docs/DOCKER_PI5.md`, `docs/PI5_SERVER.md` et `docs/OPERATIONS_RUNBOOK.md`.
 
 ## Wi-Fi local / portail captif
 
@@ -94,7 +111,18 @@ Position precision: 0 ou floutee
 MQTT public: off par defaut
 ```
 
-Meshtastic impose que les appareils partagent region + preset LoRa pour communiquer pleinement ; les canaux sont indexes de 0 a 7 ; les noms de canaux et PSK doivent correspondre pour lire les messages. Voir `docs/RADIO_QR_SETUP.md`.
+Meshtastic impose que les appareils partagent region + preset LoRa pour communiquer pleinement ; les canaux sont indexes de 0 a 7 ; les noms de canaux et PSK doivent correspondre pour lire les messages. Voir `docs/MESHTASTIC_BASELINE.md` et `docs/RADIO_QR_SETUP.md`.
+
+Commandes radio de base :
+
+```bash
+meshtastic --set lora.region EU_868 --set lora.modem_preset LONG_FAST --set lora.hop_limit 3
+meshtastic --ch-set psk default --ch-index 0
+meshtastic --ch-set module_settings.position_precision 0 --ch-index 0
+meshtastic --ch-set name ADOPT --ch-set psk random --ch-index 1
+meshtastic --qr-all
+meshtastic --info
+```
 
 ## QR codes disponibles
 
@@ -114,7 +142,7 @@ Script CLI :
 ./scripts/generate_radio_qr.sh
 ```
 
-Le QR radio ne promet pas un import magique universel dans toutes les apps Meshtastic. Il donne un paquet ultra-compatible : URL locale + commandes CLI + config lisible. Pour les canaux natifs Meshtastic, la methode la plus sure reste de generer/partager le QR depuis l'application officielle quand la radio est connectee.
+Le QR radio du projet ne remplace pas le QR natif Meshtastic. Pour les canaux Meshtastic, la methode la plus sure reste de generer/partager le QR depuis l'application officielle ou via `meshtastic --qr-all` une fois la radio configuree.
 
 ## Format profil radio
 
@@ -132,6 +160,19 @@ AM1 I K7Q2 s=A7F2 h=♡ p=neon-zombie
 ```
 
 Regle d'or : **pas de nom complet, pas de telephone, pas d'adresse, pas de GPS exact, pas de photo brute dans LoRa.**
+
+## Base du site
+
+Le site est une PWA locale, pas une app native au MVP. Voir `docs/SITE_BASELINE.md`.
+
+Pages cibles :
+
+- accueil / statut bunker ;
+- creation profil temporaire ;
+- radar social ;
+- QR site/Wi-Fi/radio ;
+- securite : block/report/charte ;
+- admin MVP : reports, logs, etat radio.
 
 ## Structure
 
