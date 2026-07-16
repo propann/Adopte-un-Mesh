@@ -152,11 +152,10 @@ async function reportProfile(targetId) {
 async function blockProfile(targetId) {
   if (!confirm('Bloquer ce profil sur le hub local ?')) return;
   try {
-    await api(`/api/profiles/${encodeURIComponent(targetId)}/block`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state.me ? { from_public_id: state.me } : {}),
-    });
+    const options = state.me
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from_public_id: state.me }) }
+      : { method: 'POST' };
+    await api(`/api/profiles/${encodeURIComponent(targetId)}/block`, options);
     await Promise.all([loadProfiles(), loadStats()]);
   } catch (err) {
     alert(`Blocage impossible : ${err.message}`);
