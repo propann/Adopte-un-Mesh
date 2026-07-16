@@ -11,7 +11,7 @@ from typing import Optional
 from urllib.parse import quote
 
 import qrcode
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -29,8 +29,9 @@ HOP_LIMIT = int(os.getenv("MESHTASTIC_HOP_LIMIT", "3"))
 PRIMARY_CHANNEL = os.getenv("MESHTASTIC_PRIMARY_CHANNEL", "LongFast")
 SECONDARY_CHANNEL = os.getenv("MESHTASTIC_SECONDARY_CHANNEL", "ADOPT")
 POSITION_PRECISION = int(os.getenv("MESHTASTIC_POSITION_PRECISION", "0"))
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 
-app = FastAPI(title="Adopte un Mesh API", version="0.2.0")
+app = FastAPI(title="Adopte un Mesh API", version="0.3.0")
 
 origins = [x.strip() for x in os.getenv("CORS_ORIGINS", "*").split(",") if x.strip()]
 app.add_middleware(
@@ -51,6 +52,12 @@ def db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
 
 def init_db() -> None:
@@ -117,9 +124,23 @@ def init_db() -> None:
                 created_at INTEGER NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_profiles_last_seen ON profiles(last_seen DESC);
+            CREATE INDEX IF NOT EXISTS idx_profiles_active_until ON profiles(active_until DESC);
             CREATE INDEX IF NOT EXISTS idx_mesh_events_created ON mesh_events(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_reports_created ON reports(created_at DESC);
             """
         )
+        # Tiny migration helper for early field tests. The bunker accepts its old skeletons.
+        ensure_column(conn, "profiles", "node_id", "TEXT")
+        ensure_column(conn, "profiles", "age", "INTEGER")
+        ensure_column(conn, "profiles", "genre_recherche", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(conn, "profiles", "last_seen", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "profiles", "rssi", "INTEGER")
+        ensure_column(conn, "profiles", "snr", "REAL")
+        ensure_column(conn, "profiles", "contact_hint", "TEXT")
+        ensure_column(conn, "mesh_events", "source", "TEXT NOT NULL DEFAULT 'unknown'")
+        ensure_column(conn, "mesh_events", "node_id", "TEXT")
+        ensure_column(conn, "mesh_events", "rssi", "INTEGER")
+        ensure_column(conn, "mesh_events", "snr", "REAL")
 
 
 @app.on_event("startup")
@@ -159,6 +180,11 @@ class MeshInbound(BaseModel):
     node_id: Optional[str] = Field(default=None, max_length=32)
     rssi: Optional[int] = None
     snr: Optional[float] = None
+
+
+def require_admin(x_admin_token: Optional[str] = Header(default=None)) -> None:
+    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(status_code=401, detail="admin token missing; zombie denied")
 
 
 def make_public_id() -> str:
@@ -201,6 +227,7 @@ def row_to_profile(row: sqlite3.Row) -> dict:
         "avatar_heart": row["avatar_heart"],
         "active_until": row["active_until"],
         "last_seen": last_seen,
+        "seconds_since_seen": max(0, now() - last_seen),
         "rssi": row["rssi"],
         "snr": row["snr"],
         "contact_hint": row["contact_hint"],
@@ -211,10 +238,33 @@ def row_to_profile(row: sqlite3.Row) -> dict:
 @app.get("/health")
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "service": "adopte-un-mesh", "zombie_density": "manageable"}
+    return {"ok": True, "service": "adopte-un-mesh", "version": "0.3.0", "zombie_density": "manageable"}
+
+
+@app.get("/api/stats")
+def stats() -> dict:
+    cutoff = now() - ACTIVE_WINDOW_SECONDS
+    with db() as conn:
+        total_profiles = conn.execute("SELECT COUNT(*) AS c FROM profiles WHERE blocked = 0").fetchone()["c"]
+        active_profiles = conn.execute(
+            "SELECT COUNT(*) AS c FROM profiles WHERE blocked = 0 AND active_until > ? AND COALESCE(last_seen, created_at) >= ?",
+            (now(), cutoff),
+        ).fetchone()["c"]
+        reports_open = conn.execute("SELECT COUNT(*) AS c FROM reports WHERE status = 'open'").fetchone()["c"]
+        matches = conn.execute("SELECT COUNT(*) AS c FROM matches").fetchone()["c"]
+        events_24h = conn.execute("SELECT COUNT(*) AS c FROM mesh_events WHERE created_at >= ?", (now() - 86400,)).fetchone()["c"]
+    return {
+        "profiles_total": total_profiles,
+        "profiles_active": active_profiles,
+        "reports_open": reports_open,
+        "matches": matches,
+        "mesh_events_24h": events_24h,
+        "active_window_seconds": ACTIVE_WINDOW_SECONDS,
+    }
 
 
 @app.post("/profiles")
+@app.post("/api/profiles")
 def create_profile(profile: ProfileIn) -> dict:
     public_id = make_public_id()
     profile_id = secrets.token_urlsafe(12)
@@ -277,18 +327,19 @@ def active_profiles() -> dict:
 
 
 @app.post("/profiles/{target_public_id}/like")
+@app.post("/api/profiles/{target_public_id}/like")
 def like_profile(target_public_id: str, like: LikeIn) -> dict:
     if target_public_id == like.from_public_id:
         raise HTTPException(status_code=400, detail="self-like refused; even zombies need boundaries")
     created = now()
     with db() as conn:
-        target = conn.execute("SELECT public_id FROM profiles WHERE public_id = ?", (target_public_id,)).fetchone()
-        source = conn.execute("SELECT public_id FROM profiles WHERE public_id = ?", (like.from_public_id,)).fetchone()
+        target = conn.execute("SELECT public_id FROM profiles WHERE public_id = ? AND blocked = 0", (target_public_id,)).fetchone()
+        source = conn.execute("SELECT public_id FROM profiles WHERE public_id = ? AND blocked = 0", (like.from_public_id,)).fetchone()
         if not target or not source:
             raise HTTPException(status_code=404, detail="profile not found")
         conn.execute(
             "INSERT OR IGNORE INTO likes (from_public_id, to_public_id, mode, created_at) VALUES (?, ?, ?, ?)",
-            (like.from_public_id, target_public_id, like.mode, created),
+            (like.from_public_id, target_public_id, clean_field(like.mode, 16), created),
         )
         reverse = conn.execute(
             "SELECT 1 FROM likes WHERE from_public_id = ? AND to_public_id = ?",
@@ -306,6 +357,7 @@ def like_profile(target_public_id: str, like: LikeIn) -> dict:
 
 
 @app.get("/matches")
+@app.get("/api/matches")
 def list_matches() -> dict:
     with db() as conn:
         rows = conn.execute("SELECT * FROM matches ORDER BY created_at DESC LIMIT 50").fetchall()
@@ -313,29 +365,48 @@ def list_matches() -> dict:
 
 
 @app.post("/profiles/{target_public_id}/report")
+@app.post("/api/profiles/{target_public_id}/report")
 def report_profile(target_public_id: str, report: ReportIn) -> dict:
     report_id = secrets.token_hex(6)
     with db() as conn:
         conn.execute(
             "INSERT INTO reports (id, from_public_id, target_public_id, reason, created_at) VALUES (?, ?, ?, ?, ?)",
-            (report_id, report.from_public_id, target_public_id, clean_field(report.reason, 80), now()),
+            (report_id, clean_field(report.from_public_id, 16), target_public_id, clean_field(report.reason, 80), now()),
         )
     return {"reported": True, "report_id": report_id}
 
 
 @app.post("/profiles/{target_public_id}/block")
+@app.post("/api/profiles/{target_public_id}/block")
 def block_profile(target_public_id: str, block: Optional[BlockIn] = None) -> dict:
     with db() as conn:
         conn.execute("UPDATE profiles SET blocked = 1 WHERE public_id = ?", (target_public_id,))
         if block:
             conn.execute(
                 "INSERT OR IGNORE INTO blocks (blocker_public_id, target_public_id, created_at) VALUES (?, ?, ?)",
-                (block.from_public_id, target_public_id, now()),
+                (clean_field(block.from_public_id, 16), target_public_id, now()),
             )
     return {"blocked": True}
 
 
+@app.get("/api/admin/reports")
+def admin_reports(x_admin_token: Optional[str] = Header(default=None)) -> dict:
+    require_admin(x_admin_token)
+    with db() as conn:
+        rows = conn.execute("SELECT * FROM reports ORDER BY created_at DESC LIMIT 50").fetchall()
+    return {"reports": [dict(row) for row in rows]}
+
+
+@app.get("/api/admin/events")
+def admin_events(x_admin_token: Optional[str] = Header(default=None)) -> dict:
+    require_admin(x_admin_token)
+    with db() as conn:
+        rows = conn.execute("SELECT * FROM mesh_events ORDER BY created_at DESC LIMIT 50").fetchall()
+    return {"events": [dict(row) for row in rows]}
+
+
 @app.post("/mesh/inbound")
+@app.post("/api/mesh/inbound")
 def mesh_inbound(event: MeshInbound) -> dict:
     payload = event.payload.strip()
     created = now()
@@ -505,6 +576,7 @@ def radio_commands() -> dict:
         f"meshtastic --ch-set module_settings.position_precision {POSITION_PRECISION} --ch-index 0",
         f"meshtastic --ch-set name {quote(SECONDARY_CHANNEL)} --ch-set psk random --ch-index 1",
         "meshtastic --info",
+        "meshtastic --qr-all",
     ]
     return {"commands": commands, "warning": "Save the generated secondary PSK; lost key, lonely zombie."}
 
@@ -516,7 +588,6 @@ def qr_site() -> Response:
 
 @app.get("/api/qr/wifi")
 def qr_wifi() -> Response:
-    # WIFI:T:WPA;S:SSID;P:password;; or nopass. This is widely supported by Android/iOS camera scanners.
     if AP_PASSWORD:
         data = f"WIFI:T:WPA;S:{AP_SSID};P:{AP_PASSWORD};;"
     else:
