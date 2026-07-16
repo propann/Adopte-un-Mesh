@@ -1,149 +1,119 @@
 # Baseline Meshtastic — reglages figes
 
-Ce document definit la configuration radio de reference pour Adopte un Mesh. Le but est d'etre ultra-compatible avec le reseau Meshtastic existant tout en ayant un canal secondaire propre au projet.
+Ce document definit la configuration radio de reference pour Adopte un Mesh en France.
 
-## 1. Doctrine
+## 1. Decision
 
-Adopte un Mesh ne fork pas Meshtastic au MVP.
+Le profil par defaut est maintenant :
 
-On utilise :
+```txt
+GAULIX_ADOPT
+```
 
-- firmware Meshtastic officiel ;
-- app officielle ou CLI officielle ;
-- region legale locale ;
-- preset commun ;
-- canal primaire compatible ;
-- canal secondaire `ADOPT` pour les signaux projet ;
-- messages courts `AM1` ou `MM1`.
+La radio rejoint le reseau communautaire francophone Gaulix sur son canal primaire, puis ajoute `ADOPT` comme canal secondaire dedie a la rencontre.
 
-Le custom firmware viendra seulement quand le produit sera deja vivant. D'abord la route, ensuite le bolide.
+Adopte un Mesh ne fork pas Meshtastic au MVP. On utilise le firmware officiel, l'app officielle, le Web Client officiel ou le CLI officiel.
 
-## 2. Configuration France/Europe
+## 2. Configuration France principale
 
 ```txt
 Region: EU_868
-Modem preset: LONG_FAST
-Use preset: true
+Modem preset: LONG_MODERATE
+Frequency override: 869.4625 MHz
 Hop limit: 3
 Transmit power: 0 / legal default
 Override duty cycle: false
-Primary channel: LongFast/default public
-Primary PSK: default
+Primary channel: Fr_Balise
+Primary PSK: AQ==
 Secondary channel: ADOPT
-Secondary PSK: random/private
-Position precision: 0 by default
-MQTT public: disabled by default
+Secondary PSK: privee, generee et distribuee par le Pi
+Position precision: 0 par defaut
+MQTT public: desactive par defaut
 ```
 
-## 3. Pourquoi ces choix
+## 3. Pourquoi Gaulix
 
-### EU_868
+Gaulix cherche a harmoniser les reglages des communautes francaises. L'objectif produit est qu'une personne qui vient de configurer sa radio puisse voir un reseau existant tout de suite, puis disposer de notre canal `ADOPT` sur la meme couche radio.
 
-La region `EU_868` correspond a l'Union Europeenne 868 MHz. Elle applique une limite duty cycle de 10%. Le firmware Meshtastic stoppe les emissions si la limite est atteinte. Donc : beacons lents, messages courts, pas de spam romantique.
+Le profil exact doit rester modifiable cote administration, car la densite RF reelle depend toujours de la zone. Un test terrain Lyon/Neyron doit confirmer la reception locale.
 
-### LONG_FAST
+## 4. Contrainte physique
 
-`LONG_FAST` est le preset par defaut. C'est le meilleur compromis de depart entre portee et vitesse. Il est aussi celui qui donne le plus de chances de rejoindre un reseau local existant.
+Une radio Meshtastic n'utilise qu'un seul preset et une seule frequence a la fois. Les canaux 0 a 7 sont logiques et partagent la meme couche LoRa.
 
-### Hop limit 3
+Donc :
 
-Meshtastic indique que le hop limit par defaut est 3 et qu'il convient a la plupart des cas. On garde 3 pour eviter de transformer chaque like en expedition interdepartementale.
+```txt
+Fr_Balise + ADOPT sur profil Gaulix = oui
+LongFast mondial + ADOPT LongFast = oui
+Gaulix + LongFast mondial en simultane sur une seule radio = non
+```
 
-### Canal primaire public
+Pour ecouter Gaulix et LongFast en parallele, utiliser deux radios.
 
-Le canal primaire sert aux emissions automatiques comme position/telemetrie. Pour maximiser la compatibilite, on garde le primaire public/default ou equivalent local, puis on ajoute `ADOPT` en secondaire.
+## 5. Profil de secours
 
-### Canal secondaire ADOPT
+Le profil `CLASSIC_LONGFAST_ADOPT` reste disponible pour les zones ou LongFast est reellement plus actif :
 
-`ADOPT` porte les signaux projet :
+```txt
+Region: EU_868
+Preset: LONG_FAST
+Frequency override: none
+Hop limit: 3
+Primary: LongFast/default
+Primary PSK: AQ==
+Secondary: ADOPT
+Secondary PSK: privee
+```
+
+Ne pas melanger les QR des deux profils : un canal `ADOPT` sur Gaulix ne communique pas avec un canal `ADOPT` sur LongFast si la couche radio differe.
+
+## 6. Profils d'usage
+
+| Usage | Role conseille | Comportement |
+|---|---|---|
+| Mobile zone dense | `CLIENT_MUTE` | ne relaie pas inutilement |
+| Mobile zone peu dense | `CLIENT` | usage normal |
+| Fixe maison | `CLIENT` | stable, faible bavardage |
+| Fixe point haut valide | `CLIENT_BASE` | seulement apres test terrain |
+| Gateway Pi 5 | `CLIENT` | USB permanent, MQTT local uniquement |
+
+Ne pas mettre tout le monde en router. Un mauvais router, c'est un zombie avec megaphone dans un tunnel.
+
+## 7. Reglages de sobriete
+
+```txt
+NodeInfo interval: 14400 s minimum
+Position: off par defaut
+Position fixe: manuelle et floutee si necessaire
+Smart position mobile: seulement si consentement explicite
+MQTT public: off
+Override duty cycle: false
+```
+
+## 8. Canal ADOPT
+
+`ADOPT` transporte uniquement :
 
 - presence courte ;
 - mini profil ;
 - coeur ;
 - event ;
 - safe/report ;
-- tests controles.
+- signaux de match tres courts.
 
-La PSK doit etre aleatoire et partagee via QR Meshtastic officiel ou canal de confiance.
+La PSK reste hors Git. Elle est fournie dans un bundle d'enrolement court via HTTPS.
 
-## 4. Commandes CLI de reference
-
-Detecter la radio :
-
-```bash
-meshtastic --info
-```
-
-Configurer LoRa :
-
-```bash
-meshtastic --set lora.region EU_868 --set lora.modem_preset LONG_FAST --set lora.hop_limit 3
-meshtastic --set lora.tx_power 0
-meshtastic --set lora.override_duty_cycle false
-```
-
-Configurer canal primaire :
-
-```bash
-meshtastic --ch-set psk default --ch-index 0
-meshtastic --ch-set module_settings.position_precision 0 --ch-index 0
-```
-
-Ajouter/configurer canal ADOPT :
-
-```bash
-meshtastic --ch-set name ADOPT --ch-set psk random --ch-index 1
-meshtastic --ch-set module_settings.position_precision 0 --ch-index 1
-meshtastic --ch-set uplink_enabled false --ch-index 1
-meshtastic --ch-set downlink_enabled false --ch-index 1
-```
-
-Generer QR natif Meshtastic :
-
-```bash
-meshtastic --qr
-meshtastic --qr-all
-```
-
-Exporter/verifier :
-
-```bash
-meshtastic --info
-meshtastic --nodes
-```
-
-## 5. Roles radio recommandes
-
-| Usage | Role conseille | Notes |
-|---|---|---|
-| Utilisateur mobile | `CLIENT` ou `CLIENT_MUTE` | `CLIENT_MUTE` en zone dense |
-| Gateway Pi 5 USB | `CLIENT` | simple, stable |
-| Node fixe haut place | `CLIENT_BASE` | si vraiment utile |
-| Routeur pur | eviter au MVP | uniquement si site radio excellent |
-
-Ne pas mettre tout le monde en router. Un mauvais router, c'est un zombie avec megaphone dans un tunnel.
-
-## 6. Messages radio projet
-
-### Beacon AM1
+## 9. Messages projet
 
 ```txt
 AM1 B K7Q2 AD zLN 900 <3
-```
-
-### Profil prototype MM1
-
-```txt
-MM1|Pseudo|M/F|49|Photo,LoRa,Hacking|Dispo cafe au soleil
-```
-
-### Mini avatar descriptor
-
-```txt
 AM1 I K7Q2 s=A7F2 h=♡ p=neon-zombie
 ```
 
-## 7. Frequnce d'emission conseillee
+Le format `MM1|...` reste reserve aux prototypes et tests locaux.
+
+## 10. Cadence
 
 | Message | Cadence max |
 |---|---|
@@ -152,72 +122,44 @@ AM1 I K7Q2 s=A7F2 h=♡ p=neon-zombie
 | Like | action utilisateur uniquement |
 | Match | notification unique |
 | Safe/report | action utilisateur uniquement |
-| Mini avatar | a l'inscription puis rare |
+| Avatar | inscription puis rare |
 
-## 8. Position et vie privee
+## 11. Enrolement distant
 
-Par defaut :
+Le Pi 5 heberge le site et decide du profil. La radio est branchee sur l'ordinateur de l'utilisateur.
 
-```bash
-meshtastic --ch-set module_settings.position_precision 0 --ch-index 0
-meshtastic --ch-set module_settings.position_precision 0 --ch-index 1
-```
+Deux modes sont prevus :
 
-Si evenement ou cartographie floutee : choisir une precision faible, par exemple autour de plusieurs km. Ne jamais utiliser precision complete pour de la rencontre publique.
+1. agent local utilisant le CLI Meshtastic, recommande ;
+2. Web Serial Chrome/Edge desktop, en mode progressif.
 
-## 9. MQTT
+Voir `docs/REMOTE_PROVISIONING.md`.
 
-Pour le produit :
+## 12. QR
 
-```txt
-MQTT public Meshtastic: off
-Mosquitto local Pi: yes
-Uplink/downlink public: off
-JSON MQTT: debug seulement
-```
-
-Raison : le MQTT public Meshtastic a des restrictions et une politique zero-hop ; il n'est pas le bus produit d'Adopte un Mesh. Le Pi 5 utilise son broker local comme outil interne.
-
-## 10. QR et partage de config
-
-Trois niveaux :
-
-1. QR Wi-Fi : connecter au Pi ;
-2. QR site : ouvrir la PWA ;
-3. QR Meshtastic natif : partager les canaux et reglages radio.
-
-Le QR natif Meshtastic doit venir de :
+Le QR natif Meshtastic doit etre genere apres application de la configuration :
 
 ```bash
+meshtastic --qr
 meshtastic --qr-all
 ```
 
-ou de l'application officielle.
+La PSK `ADOPT` pouvant etre incluse, ce QR doit etre traite comme un secret de groupe.
 
-## 11. Matos cible
-
-| Materiel | Role ideal |
-|---|---|
-| LilyGO T-Beam | node mobile/gateway test |
-| LilyGO T3-S3 | gateway USB Pi 5 |
-| LilyGO T-Deck / T-Deck Plus | terminal terrain graphique |
-| Heltec LoRa V3/V4 | node simple / test |
-| RAK nRF52 | node basse conso |
-
-## 12. Interdits MVP
+## 13. Interdits MVP
 
 - fork firmware ;
 - photo brute sur LoRa ;
 - GPS exact ;
 - PSK dans Git ;
-- beacon < 3 minutes ;
-- MQTT public comme dependance ;
-- custom frequency ;
-- override duty cycle.
+- beacon agressif ;
+- override duty cycle ;
+- administration radio distante ouverte ;
+- modification libre des parametres critiques par un utilisateur public.
 
-## 13. Sources officielles a verifier avant changement
+## 14. Sources a verifier avant changement
 
-- LoRa Configuration : https://meshtastic.org/docs/configuration/radio/lora/
-- Channel Configuration : https://meshtastic.org/docs/configuration/radio/channels/
-- Python CLI : https://meshtastic.org/docs/software/python/cli/
-- MQTT : https://meshtastic.org/docs/software/integrations/mqtt/
+- Documentation Meshtastic LoRa et canaux ;
+- CLI Meshtastic ;
+- documentation Gaulix actuelle ;
+- carte et tests terrain autour de la zone de deploiement.
