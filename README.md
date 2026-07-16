@@ -4,39 +4,36 @@ Rencontre locale, signal faible, intentions fortes.
 
 **Doctrine : LoRa transporte l'etincelle, le Raspberry Pi 5 garde le feu.**
 
-Adopte un Mesh est une plateforme locale de rencontre et de presence sociale autour de Meshtastic. Le projet utilise un Pi 5 avec HDD comme hub autonome : site web local, API, base SQLite persistante, radio-bridge USB, Mosquitto prive, portail Wi-Fi et outils de configuration QR.
+Adopte un Mesh est une plateforme locale de rencontre et de presence sociale autour de Meshtastic. Le projet utilise un Pi 5 avec HDD comme hub autonome : site web local, API, base SQLite persistante, radio-bridge USB, Mosquitto prive, portail Wi-Fi, station d'enrolement USB et outils de configuration QR.
 
 > Ici, les zombies peuvent lire les panneaux. Pas les secrets.
 
 ## Lire d'abord
 
-La documentation de reference est maintenant organisee comme un vrai manuel de bunker :
-
 | Document | Role |
 |---|---|
-| `docs/GUIDE_COMPLET.md` | Manuel global projet : architecture, Docker, radio, site, securite, roadmap |
-| `docs/DOCKER_PI5.md` | Deploiement Docker sur Raspberry Pi 5 + HDD |
-| `docs/MESHTASTIC_BASELINE.md` | Reglages radio figes et ultra-compatibles |
-| `docs/SITE_BASELINE.md` | Base UX/fonctionnelle du site local |
-| `docs/SITE_AUDIT.md` | Audit du site, corrections faites et backlog de ce qui manque |
-| `docs/RADIO_QR_SETUP.md` | QR, commandes CLI, partage de configuration radio |
-| `docs/PI5_SERVER.md` | Preparation serveur Pi 5 |
-| `docs/OPERATIONS_RUNBOOK.md` | Exploitation quotidienne et pannes |
-| `docs/SECURITY.md` / `SECURITY.md` | Securite projet et procedure de signalement |
+| `docs/GUIDE_COMPLET.md` | Manuel global projet |
+| `docs/DOCKER_PI5.md` | Docker sur Raspberry Pi 5 + HDD |
+| `docs/MESHTASTIC_BASELINE.md` | Reglages radio figes |
+| `docs/RADIO_PROVISIONING_STATION.md` | Branchement USB, configuration CLI et profil unique par radio |
+| `docs/RADIO_QR_SETUP.md` | QR et partage de configuration |
+| `docs/SITE_BASELINE.md` | Base UX/fonctionnelle du site |
+| `docs/SITE_AUDIT.md` | Audit et backlog du site |
+| `docs/OPERATIONS_RUNBOOK.md` | Exploitation quotidienne |
+| `docs/SECURITY.md` / `SECURITY.md` | Securite et signalement |
 | `docs/PRIVACY.md` | Donnees, minimisation, retention |
-| `docs/INCIDENT_RESPONSE.md` | Que faire en cas d'abus, fuite, spam ou incident |
+| `docs/INCIDENT_RESPONSE.md` | Reponse aux incidents |
 
 ## Etat du depot
 
-Cette branche `main` contient maintenant la fondation MVP directement exploitable :
-
-- API FastAPI + SQLite avec profils, ingestion radio, likes, matches, reports, stats, admin local et blocage.
-- PWA mobile-first avec interface post-apocalyptique, coeur radio, radar, QR, admin et actions profil.
-- Radio bridge Python compatible Meshtastic USB, avec mode dry-run.
+- API FastAPI + SQLite : profils, ingestion radio, likes, matches, reports, stats, admin local et blocage.
+- PWA mobile-first : radar, QR, admin et actions profil.
+- Radio bridge Python compatible Meshtastic USB.
+- Station d'enrolement USB : une radio ID = un profil.
 - Docker Compose dev + override Pi 5/HDD.
 - Point d'acces Wi-Fi local via `hostapd` + `dnsmasq`.
-- Generation de QR codes : URL locale, Wi-Fi, fiche radio et commandes CLI Meshtastic.
-- Documentation architecture, Docker Pi, securite, privacy, protocole radio, Pi 5, QR, site et runbook.
+- QR site, Wi-Fi, commandes CLI et QR natif Meshtastic.
+- Documentation architecture, Docker, radio, securite et exploitation.
 
 ## Demarrage rapide dev
 
@@ -60,8 +57,6 @@ Arret :
 
 ## Installation Pi 5 + HDD
 
-Prerequis conseille : Raspberry Pi OS Lite 64-bit, Pi 5, stockage SSD/NVMe ou HDD monte, radio Meshtastic en USB.
-
 ```bash
 chmod +x scripts/*.sh
 sudo HDD_MOUNT=/mnt/adopte-hdd ./scripts/install_pi5.sh
@@ -70,7 +65,7 @@ cp .env.example .env
 docker compose -f docker/docker-compose.yml -f docker/compose.pi5.yml up -d --build
 ```
 
-Par defaut, les donnees persistantes sont preparees sous :
+Stockage persistant :
 
 ```txt
 /srv/adopte-un-mesh
@@ -79,9 +74,40 @@ Par defaut, les donnees persistantes sont preparees sous :
 
 Voir `docs/DOCKER_PI5.md`, `docs/PI5_SERVER.md` et `docs/OPERATIONS_RUNBOOK.md`.
 
-## Wi-Fi local / portail captif
+## Station USB d'enrolement
 
-Le Pi peut creer une bulle Wi-Fi autonome :
+La station configure la radio et cree le compte lie a son vrai ID Meshtastic.
+
+Installation :
+
+```bash
+sudo ./scripts/setup_provisioning_station.sh
+sudo reboot
+```
+
+Enrolement :
+
+```bash
+./scripts/provision_radio.py
+```
+
+Le workflow :
+
+```txt
+radio branchee en USB
+→ lecture node_id Meshtastic
+→ configuration EU_868 / LONG_FAST / hop 3
+→ primaire public conserve
+→ canal secondaire ADOPT configure avec PSK privee
+→ MQTT public coupe
+→ profil cree ou mis a jour dans SQLite
+→ token prive de gestion affiche une fois
+→ QR natif Meshtastic affiche
+```
+
+Regle de base : **une radio ID = un profil**. Rebrancher la meme radio met a jour le meme compte. Voir `docs/RADIO_PROVISIONING_STATION.md`.
+
+## Wi-Fi local / portail captif
 
 ```bash
 sudo ADOPTE_AP_SSID="Adopte Un Mesh" \
@@ -91,7 +117,7 @@ sudo ADOPTE_AP_SSID="Adopte Un Mesh" \
   ./scripts/setup_wifi_ap.sh
 ```
 
-Les utilisateurs se connectent au Wi-Fi `Adopte Un Mesh`, puis ouvrent :
+Acces :
 
 ```txt
 http://adopteunmesh.local
@@ -100,19 +126,18 @@ http://192.168.4.1
 
 ## Configuration radio ultra-compatible
 
-La cible terrain par defaut est volontairement simple :
-
 ```txt
 Region: EU_868
 Preset: LONG_FAST
 Hop limit: 3
-Primary: LongFast/default public
-Secondary: ADOPT
-Position precision: 0 ou floutee
-MQTT public: off par defaut
+Primary: public/default conserve
+Secondary #1: ADOPT
+ADOPT PSK: privee, stockee uniquement dans .env
+Position precision ADOPT: 0
+MQTT public: off
 ```
 
-Meshtastic impose que les appareils partagent region + preset LoRa pour communiquer pleinement ; les canaux sont indexes de 0 a 7 ; les noms de canaux et PSK doivent correspondre pour lire les messages. Voir `docs/MESHTASTIC_BASELINE.md` et `docs/RADIO_QR_SETUP.md`.
+Le primaire public reste intact pour capter les utilisateurs Meshtastic deja presents. Le canal secondaire `ADOPT` transporte les signaux rencontre.
 
 ## QR codes disponibles
 
@@ -126,23 +151,29 @@ GET /api/radio/commands
 GET /api/qr/radio-commands
 ```
 
-Script CLI :
+Script QR :
 
 ```bash
 ./scripts/generate_radio_qr.sh
 ```
 
-Le QR radio ne promet pas un import magique universel dans toutes les apps Meshtastic. Il donne un paquet ultra-compatible : URL locale + commandes CLI + config lisible. Pour les canaux natifs Meshtastic, la methode la plus sure reste de generer/partager le QR depuis l'application officielle quand la radio est connectee.
+Pour le vrai QR natif des canaux :
+
+```bash
+meshtastic --port /dev/ttyACM0 --qr-all
+```
+
+Le QR contenant `ADOPT` est un secret local : ne pas le publier dans Git.
 
 ## Format profil radio
 
-Format terrain accepte pour prototype :
+Prototype :
 
 ```txt
 MM1|Pseudo|M/F|49|Photo,LoRa,Hacking|Dispo cafe au soleil
 ```
 
-Format produit recommande :
+Produit :
 
 ```txt
 AM1 B K7Q2 AD zLN 900 <3
@@ -161,18 +192,21 @@ configs/mosquitto     Broker MQTT local
 configs/nginx         Web + proxy API + captive portal
 docker                Compose dev/Pi 5
 docs                  Specifications et exploitation
-scripts               Installation, Wi-Fi AP, securite, QR, backup
+scripts               Installation, provisioning USB, Wi-Fi, securite, QR, backup
 ```
 
 ## Securite
 
-- pas de secret commite ;
-- PSK privee generee localement ;
-- MQTT local prive par defaut ;
+- une radio ID = un profil ;
+- creation terrain via station USB de confiance ;
+- PSK `ADOPT` generee localement ;
+- token de gestion affiche une seule fois et stocke sous forme de hash ;
+- secrets `.env` en permissions `600` ;
+- MQTT public coupe ;
 - GPS exact interdit ;
 - blocage/report des le MVP ;
-- profils temporaires avec TTL ;
-- durcissement Pi dans `scripts/harden_pi5.sh` ;
+- profils avec TTL ;
+- sauvegardes chiffrees recommandees ;
 - runbook incident dans `docs/INCIDENT_RESPONSE.md`.
 
 ## Commandes de test
@@ -181,11 +215,11 @@ scripts               Installation, Wi-Fi AP, securite, QR, backup
 curl http://localhost:8000/health
 curl http://localhost:8000/api/stats
 curl http://localhost:8000/api/active
-curl -X POST http://localhost:8000/mesh/inbound \
-  -H 'Content-Type: application/json' \
-  -d '{"payload":"MM1|Azoth|M/F|49|Photo,LoRa,Hacking|Cafe solaire et zombies polis","node_id":"!demo","rssi":-67,"snr":7.5}'
+meshtastic --port /dev/ttyACM0 --info
+sqlite3 /srv/adopte-un-mesh/data/adoptmesh.sqlite3 \
+  'SELECT node_id, public_id, display_name FROM profiles;'
 ```
 
 ## Manifeste court
 
-Adopte un Mesh n'est pas Tinder sur talkie-walkie. C'est un feu de camp numerique : on signale une presence, on protege les personnes, on laisse le Pi organiser le village, et on laisse LoRa respirer.
+Adopte un Mesh n'est pas Tinder sur talkie-walkie. C'est un feu de camp numerique : la place publique Meshtastic reste ouverte, `ADOPT` devient la table de rencontre, le Pi garde les profils au chaud, et une radio ne peut pas se multiplier en douze clones sentimentaux.
