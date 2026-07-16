@@ -3,63 +3,160 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#090b10" />
     <title>Adopte un Mesh</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Accueil Adopte un Mesh"><span>♡</span> Adopte un Mesh</a>
+      <nav aria-label="Navigation principale">
+        <a href="#radar">Radar</a>
+        <a href="#create">Balise</a>
+        <a href="#radio">Radio</a>
+        <a href="#safe">Sécurité</a>
+        <a href="#admin">Admin</a>
+      </nav>
+    </header>
+
+    <main id="top" class="shell">
       <section class="hero">
-        <div class="sigil">♡</div>
-        <p class="eyebrow">bunker social local</p>
-        <h1>Adopte<br />un Mesh</h1>
-        <p class="tagline">Un feu de camp numerique : Meshtastic signale, le Pi 5 organise, les zombies restent polis.</p>
-        <span id="status" class="status">Verification du bunker...</span>
-      </section>
-
-      <section class="grid">
-        <article class="card">
-          <h2>Creer une balise</h2>
-          <label>Pseudo public<input id="displayName" maxlength="32" placeholder="Signal Azoth" /></label>
-          <label>Age<input id="age" type="number" min="18" max="120" placeholder="49" /></label>
-          <label>Genre / recherche<input id="genreRecherche" maxlength="24" placeholder="M/F, ami, date..." /></label>
-          <label>Intention<select id="intent"><option value="ami">ami</option><option value="date">date</option><option value="photo">photo</option><option value="balade">balade</option><option value="event">event</option></select></label>
-          <label>Bio courte<textarea id="bio" maxlength="160" placeholder="Dispo cafe, balade photo, pas d'adresse, pas de secret."></textarea></label>
-          <label>Signature<select id="heart"><option>♡</option><option>&lt;3</option><option>♥</option><option>☢</option></select></label>
-          <button id="createBtn">Allumer le coeur</button>
-          <pre id="profileResult"></pre>
-        </article>
-
-        <article class="card warning">
-          <h2>QR de terrain</h2>
-          <p>Scanne pour rejoindre le site ou configurer la radio avec les commandes compatibles.</p>
-          <div class="qrgrid">
-            <figure><img src="/api/qr/site" alt="QR site" /><figcaption>Site local</figcaption></figure>
-            <figure><img src="/api/qr/wifi" alt="QR Wi-Fi" /><figcaption>Wi-Fi local</figcaption></figure>
-            <figure><img src="/api/qr/radio-commands" alt="QR commandes radio" /><figcaption>Commandes radio</figcaption></figure>
+        <div class="hero-copy">
+          <p class="eyebrow">bunker social local · Meshtastic · Pi 5</p>
+          <h1>Un feu de camp numérique pour signaux vivants.</h1>
+          <p class="tagline">Meshtastic signale la présence, le Raspberry Pi 5 organise le village, le site garde les profils confortables. Les zombies lisent les panneaux, jamais les secrets.</p>
+          <div class="hero-actions">
+            <a class="button" href="#radar">Voir les signaux</a>
+            <a class="button secondary" href="#radio">Configurer une radio</a>
           </div>
-          <button id="commandsBtn" class="secondary">Afficher commandes Meshtastic</button>
-          <pre id="commands"></pre>
-        </article>
+        </div>
+        <div class="hero-panel">
+          <div class="sigil">♡</div>
+          <span id="status" class="status">Vérification du bunker...</span>
+          <dl class="stat-list">
+            <div><dt>Actifs</dt><dd id="statActive">—</dd></div>
+            <div><dt>Total</dt><dd id="statTotal">—</dd></div>
+            <div><dt>Reports</dt><dd id="statReports">—</dd></div>
+            <div><dt>Mesh 24h</dt><dd id="statEvents">—</dd></div>
+          </dl>
+        </div>
       </section>
 
-      <section class="card">
-        <div class="row">
-          <h2>Radar social</h2>
+      <section class="notice">
+        <strong>Règle d’or :</strong> LoRa transporte l’étincelle, pas le dossier personnel. Pas de GPS exact, pas d’adresse, pas de téléphone, pas de photo brute dans l’air.
+      </section>
+
+      <section id="radar" class="card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">radar social</p>
+            <h2>Signaux captés</h2>
+            <p>Profils actifs vus récemment par le Pi ou créés sur le site local.</p>
+          </div>
           <button id="refreshBtn" class="secondary">Scanner</button>
         </div>
         <div id="profiles" class="profiles"></div>
       </section>
 
-      <section class="card rules">
-        <h2>Regles du feu de camp</h2>
-        <ul>
-          <li>Pas de GPS exact.</li>
-          <li>Pas de telephone, adresse ou nom complet par LoRa.</li>
-          <li>Un coeur oui, un dossier RGPD dans les airs non.</li>
-          <li>Blocage et signalement avant que le zombie apprenne a swiper.</li>
-        </ul>
+      <section class="grid two">
+        <article id="create" class="card">
+          <p class="eyebrow">balise web</p>
+          <h2>Créer mon profil local</h2>
+          <p class="muted">Ce profil reste côté Pi. Pour la radio, on préfère un message court AM1/MM1.</p>
+          <label>Pseudo public<input id="displayName" maxlength="32" placeholder="Signal Azoth" /></label>
+          <label>Âge<input id="age" type="number" min="18" max="120" placeholder="49" /></label>
+          <label>Genre / recherche<input id="genreRecherche" maxlength="24" placeholder="M/F, ami, date..." /></label>
+          <label>Intention
+            <select id="intent">
+              <option value="ami">ami</option>
+              <option value="date">date</option>
+              <option value="photo">photo</option>
+              <option value="balade">balade</option>
+              <option value="event">event</option>
+            </select>
+          </label>
+          <label>Tags<input id="tags" maxlength="120" placeholder="photo, lora, balade" /></label>
+          <label>Bio courte<textarea id="bio" maxlength="160" placeholder="Dispo café, balade photo, pas d'adresse, pas de secret."></textarea></label>
+          <label>Signature
+            <select id="heart"><option>♡</option><option>&lt;3</option><option>♥</option><option>☢</option><option>✦</option></select>
+          </label>
+          <button id="createBtn">Allumer le cœur</button>
+          <pre id="profileResult" class="result"></pre>
+        </article>
+
+        <article id="radio" class="card warning">
+          <p class="eyebrow">radio & QR</p>
+          <h2>Configurer le terrain</h2>
+          <p>QR site, Wi-Fi local et commandes radio conservatrices pour rester compatible avec Meshtastic.</p>
+          <div class="qrgrid">
+            <figure><img src="/api/qr/site" alt="QR du site local" /><figcaption>Site local</figcaption></figure>
+            <figure><img src="/api/qr/wifi" alt="QR du Wi-Fi local" /><figcaption>Wi‑Fi</figcaption></figure>
+            <figure><img src="/api/qr/radio-commands" alt="QR des commandes radio" /><figcaption>Radio CLI</figcaption></figure>
+          </div>
+          <div class="button-row">
+            <button id="commandsBtn" class="secondary">Commandes Meshtastic</button>
+            <button id="configBtn" class="secondary">Configuration figée</button>
+          </div>
+          <pre id="commands" class="result"></pre>
+        </article>
+      </section>
+
+      <section id="safe" class="grid two">
+        <article class="card rules">
+          <p class="eyebrow">sécurité</p>
+          <h2>Charte du feu de camp</h2>
+          <ul>
+            <li>Service réservé aux majeurs.</li>
+            <li>Rencontre en lieu public, jamais dans une cave de boss final.</li>
+            <li>Blocage immédiat si malaise, spam ou comportement lourd.</li>
+            <li>Signalement visible côté admin local.</li>
+            <li>Pas de GPS exact, pas d’adresse, pas de téléphone par LoRa.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <p class="eyebrow">outil rapide</p>
+          <h2>Tester un message radio</h2>
+          <p class="muted">Injecte un faux paquet pour vérifier le parseur sans radio branchée.</p>
+          <label>Payload mesh<textarea id="meshPayload" maxlength="220">MM1|Azoth|M/F|49|Photo,LoRa,Hacking|Café solaire et zombies polis</textarea></label>
+          <button id="meshTestBtn" class="secondary">Injecter dans l’API</button>
+          <pre id="meshResult" class="result"></pre>
+        </article>
+      </section>
+
+      <section id="admin" class="card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">admin local</p>
+            <h2>Surveillance du bunker</h2>
+            <p>Résumé local des reports, matches et derniers paquets mesh. Si un token admin est défini dans `.env`, renseigne-le ici.</p>
+          </div>
+          <input id="adminToken" class="token" placeholder="ADMIN_TOKEN optionnel" />
+        </div>
+        <div class="button-row">
+          <button id="adminLoadBtn" class="secondary">Charger admin</button>
+          <button id="matchesBtn" class="secondary">Voir matches</button>
+        </div>
+        <div id="adminOutput" class="admin-output"></div>
       </section>
     </main>
+
+    <template id="profileTemplate">
+      <article class="profile-card">
+        <div class="profile-avatar"></div>
+        <div class="profile-body">
+          <div class="profile-title"></div>
+          <div class="profile-meta"></div>
+          <p class="profile-bio"></p>
+          <div class="profile-tags"></div>
+          <div class="profile-actions">
+            <button data-action="like">♡ Intérêt</button>
+            <button data-action="report" class="secondary">Signaler</button>
+            <button data-action="block" class="danger">Bloquer</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
     <script src="/app.js"></script>
   </body>
 </html>
