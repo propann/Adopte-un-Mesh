@@ -4,7 +4,7 @@ Rencontre locale, signal faible, intentions fortes.
 
 **Doctrine : LoRa transporte l'etincelle, le Raspberry Pi 5 garde le feu.**
 
-Adopte un Mesh est une plateforme locale de rencontre et de presence sociale autour de Meshtastic. Le projet utilise un Pi 5 avec HDD comme hub autonome : site web local, API, base SQLite persistante, radio-bridge USB, Mosquitto prive, portail Wi-Fi, station d'enrolement USB et outils de configuration QR.
+Adopte un Mesh est une plateforme locale de rencontre et de presence sociale autour de Meshtastic. Le projet utilise un Pi 5 avec HDD comme hub autonome : site web, API, base SQLite persistante, radio passerelle USB, MQTT prive, portail Wi-Fi, station d'enrolement et outils de configuration radio.
 
 > Ici, les zombies peuvent lire les panneaux. Pas les secrets.
 
@@ -13,9 +13,13 @@ Adopte un Mesh est une plateforme locale de rencontre et de presence sociale aut
 | Document | Role |
 |---|---|
 | `docs/GUIDE_COMPLET.md` | Manuel global projet |
+| `docs/DEPLOYMENT_READINESS.md` | Etat reel avant deploiement et checklist Go/No-Go |
+| `docs/COOLIFY_MULTI_SERVER.md` | Coolify central sur un autre serveur + Pi 5 distant |
 | `docs/DOCKER_PI5.md` | Docker sur Raspberry Pi 5 + HDD |
-| `docs/MESHTASTIC_BASELINE.md` | Reglages radio figes |
-| `docs/RADIO_PROVISIONING_STATION.md` | Branchement USB, configuration CLI et profil unique par radio |
+| `docs/MESHTASTIC_BASELINE.md` | Reglages radio et profils reseau |
+| `docs/RADIO_PROVISIONING_STATION.md` | Configuration CLI et profil unique par radio |
+| `docs/REMOTE_PROVISIONING.md` | Enrolement depuis l'ordinateur de l'utilisateur |
+| `docs/POSITION_PRIVACY.md` | Position floutee et interdiction du GPS exact public |
 | `docs/RADIO_QR_SETUP.md` | QR et partage de configuration |
 | `docs/SITE_BASELINE.md` | Base UX/fonctionnelle du site |
 | `docs/SITE_AUDIT.md` | Audit et backlog du site |
@@ -28,12 +32,23 @@ Adopte un Mesh est une plateforme locale de rencontre et de presence sociale aut
 
 - API FastAPI + SQLite : profils, ingestion radio, likes, matches, reports, stats, admin local et blocage.
 - PWA mobile-first : radar, QR, admin et actions profil.
-- Radio bridge Python compatible Meshtastic USB.
-- Station d'enrolement USB : une radio ID = un profil.
-- Docker Compose dev + override Pi 5/HDD.
-- Point d'acces Wi-Fi local via `hostapd` + `dnsmasq`.
-- QR site, Wi-Fi, commandes CLI et QR natif Meshtastic.
-- Documentation architecture, Docker, radio, securite et exploitation.
+- Radio passerelle Meshtastic USB permanente sur le Pi.
+- Bridge USB vers API et MQTT prive.
+- Emission MQTT vers LoRa desactivee par defaut et limitee au canal `ADOPT`.
+- Station d'enrolement : une radio ID = un profil.
+- Docker Compose dev, Pi 5 et Coolify distant.
+- Stockage persistant HDD.
+- Documentation architecture, deploiement, radio, securite et exploitation.
+
+## Niveau de maturite
+
+Le projet est pret pour :
+
+```txt
+LABORATOIRE / PILOTE FERME
+```
+
+Il n'est pas encore recommande pour une ouverture publique sans surveillance. Voir `docs/DEPLOYMENT_READINESS.md`.
 
 ## Demarrage rapide dev
 
@@ -42,7 +57,7 @@ cp .env.example .env
 ./scripts/dev_up.sh
 ```
 
-Puis ouvrir :
+Acces :
 
 - site : http://localhost:8080
 - API : http://localhost:8000/health
@@ -72,100 +87,114 @@ Stockage persistant :
 /mnt/adopte-hdd/adopte-un-mesh
 ```
 
-Voir `docs/DOCKER_PI5.md`, `docs/PI5_SERVER.md` et `docs/OPERATIONS_RUNBOOK.md`.
+## Deploiement avec Coolify sur un autre serveur
 
-## Station USB d'enrolement
+Une instance Coolify externe peut gerer le Pi 5 par SSH.
+
+Dans Coolify :
+
+1. ajouter le Pi comme serveur distant ;
+2. valider Docker et SSH ;
+3. connecter ce depot GitHub ;
+4. choisir :
+
+```txt
+docker/compose.coolify.pi5.yml
+```
+
+5. affecter le domaine uniquement au service `web`, port interne `80` ;
+6. ajouter les secrets dans l'interface Coolify ;
+7. verifier le montage HDD et la radio USB directement sur le Pi.
+
+Le domaine doit pointer vers le Pi, son tunnel ou son reverse proxy. Le serveur Coolify principal ne transporte pas automatiquement le trafic.
+
+Voir `docs/COOLIFY_MULTI_SERVER.md`.
+
+## Radio passerelle permanente du Pi
+
+Architecture :
+
+```txt
+Radio Meshtastic USB
+        |
+        v
+radio-bridge
+  |           |
+  v           v
+API         Mosquitto prive
+  |           |
+  v           v
+SQLite      automations internes
+```
+
+MQTT :
+
+```txt
+adopte/mesh/inbound
+adopte/mesh/status
+adopte/mesh/outbound/adopt
+```
+
+Le flux sortant vers LoRa reste coupe par defaut :
+
+```dotenv
+MQTT_ALLOW_OUTBOUND=false
+```
+
+Le port MQTT `1883` ne doit pas etre expose sur Internet.
+
+## Station d'enrolement
 
 La station configure la radio et cree le compte lie a son vrai ID Meshtastic.
-
-Installation :
 
 ```bash
 sudo ./scripts/setup_provisioning_station.sh
 sudo reboot
-```
-
-Enrolement :
-
-```bash
 ./scripts/provision_radio.py
 ```
 
-Le workflow :
+Regle : **une radio ID = un profil**. Rebrancher la meme radio met a jour le meme compte.
+
+## Configuration radio
+
+Principes fixes :
 
 ```txt
-radio branchee en USB
-→ lecture node_id Meshtastic
-→ configuration EU_868 / LONG_FAST / hop 3
-→ primaire public conserve
-→ canal secondaire ADOPT configure avec PSK privee
-→ MQTT public coupe
-→ profil cree ou mis a jour dans SQLite
-→ token prive de gestion affiche une fois
-→ QR natif Meshtastic affiche
+Region legale EU_868
+Profil reseau public choisi selon la zone
+Canal primaire communautaire conserve
+Canal secondaire #1 ADOPT
+PSK ADOPT privee
+Position floutee ou coupee
+MQTT public desactive
 ```
 
-Regle de base : **une radio ID = un profil**. Rebrancher la meme radio met a jour le meme compte. Voir `docs/RADIO_PROVISIONING_STATION.md`.
+Une radio utilise une seule couche radio physique a la fois. Les canaux primaire et secondaire doivent donc partager la meme region, le meme preset et la meme frequence physique.
 
-## Wi-Fi local / portail captif
+## Position
 
-```bash
-sudo ADOPTE_AP_SSID="Adopte Un Mesh" \
-  ADOPTE_WIFI_IFACE="wlan0" \
-  ADOPTE_AP_ADDR="192.168.4.1" \
-  ADOPTE_LOCAL_DOMAIN="adopteunmesh.local" \
-  ./scripts/setup_wifi_ap.sh
-```
-
-Acces :
+Valeurs publiques autorisees :
 
 ```txt
-http://adopteunmesh.local
-http://192.168.4.1
+0  : aucune position
+12 : zone large
+13 : ville / secteur
+15 : quartier large avec avertissement
+32 : position exacte interdite dans l'enrolement public
 ```
 
-## Configuration radio ultra-compatible
+Voir `docs/POSITION_PRIVACY.md`.
 
-```txt
-Region: EU_868
-Preset: LONG_FAST
-Hop limit: 3
-Primary: public/default conserve
-Secondary #1: ADOPT
-ADOPT PSK: privee, stockee uniquement dans .env
-Position precision ADOPT: 0
-MQTT public: off
-```
-
-Le primaire public reste intact pour capter les utilisateurs Meshtastic deja presents. Le canal secondaire `ADOPT` transporte les signaux rencontre.
-
-## QR codes disponibles
-
-Endpoints :
-
-```txt
-GET /api/qr/site
-GET /api/qr/wifi
-GET /api/radio/config
-GET /api/radio/commands
-GET /api/qr/radio-commands
-```
-
-Script QR :
+## QR radio
 
 ```bash
 ./scripts/generate_radio_qr.sh
-```
-
-Pour le vrai QR natif des canaux :
-
-```bash
 meshtastic --port /dev/ttyACM0 --qr-all
 ```
 
-Le QR contenant `ADOPT` est un secret local : ne pas le publier dans Git.
+Le QR contenant la PSK `ADOPT` est un secret local : ne pas le publier dans Git.
 
-## Format profil radio
+## Format radio
 
 Prototype :
 
@@ -182,44 +211,30 @@ AM1 I K7Q2 s=A7F2 h=♡ p=neon-zombie
 
 Regle d'or : **pas de nom complet, pas de telephone, pas d'adresse, pas de GPS exact, pas de photo brute dans LoRa.**
 
-## Structure
-
-```txt
-apps/api              API FastAPI + SQLite + QR + stats
-apps/web              PWA statique
-services/radio-bridge Bridge USB Meshtastic -> API
-configs/mosquitto     Broker MQTT local
-configs/nginx         Web + proxy API + captive portal
-docker                Compose dev/Pi 5
-docs                  Specifications et exploitation
-scripts               Installation, provisioning USB, Wi-Fi, securite, QR, backup
-```
-
-## Securite
+## Securite minimale
 
 - une radio ID = un profil ;
-- creation terrain via station USB de confiance ;
 - PSK `ADOPT` generee localement ;
-- token de gestion affiche une seule fois et stocke sous forme de hash ;
-- secrets `.env` en permissions `600` ;
-- MQTT public coupe ;
+- token de gestion stocke sous forme de hash ;
+- secrets hors Git ;
+- MQTT prive et non expose ;
+- emission LoRa par MQTT coupee au premier deploiement ;
 - GPS exact interdit ;
 - blocage/report des le MVP ;
 - profils avec TTL ;
-- sauvegardes chiffrees recommandees ;
-- runbook incident dans `docs/INCIDENT_RESPONSE.md`.
+- admin protegee par token ;
+- sauvegarde HDD et sauvegarde hors site a tester.
 
-## Commandes de test
+## Tests essentiels
 
 ```bash
 curl http://localhost:8000/health
 curl http://localhost:8000/api/stats
 curl http://localhost:8000/api/active
 meshtastic --port /dev/ttyACM0 --info
-sqlite3 /srv/adopte-un-mesh/data/adoptmesh.sqlite3 \
-  'SELECT node_id, public_id, display_name FROM profiles;'
+mosquitto_sub -h 127.0.0.1 -t 'adopte/mesh/#' -v
 ```
 
 ## Manifeste court
 
-Adopte un Mesh n'est pas Tinder sur talkie-walkie. C'est un feu de camp numerique : la place publique Meshtastic reste ouverte, `ADOPT` devient la table de rencontre, le Pi garde les profils au chaud, et une radio ne peut pas se multiplier en douze clones sentimentaux.
+Adopte un Mesh n'est pas Tinder sur talkie-walkie. C'est un feu de camp numerique : la place publique Meshtastic reste ouverte, `ADOPT` devient la table de rencontre, le Pi garde les profils au chaud, et le MQTT reste derriere la porte blindee.
